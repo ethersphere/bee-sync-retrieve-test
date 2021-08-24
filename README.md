@@ -53,6 +53,12 @@ This means that the script randomly selected `bee-2` from `BEE_HOSTS` to upload 
 Sometimes it is useful to check if a hash is available on several nodes. For example if the test script run is interrupted or happens in a different node. There is a `check` script for that which expects the hash as an argument:
 
 ```
-node check a0bdcde5c843baa3a1af6f07173c9f5a2f75e29f2f4729deae3223148b7082ce
+node check 10744a2546c11f6ae58058872ced84f3474c2dab19fe3e06868c26e075a7d77c
 ```
+
+### Report file
+
+There is a report generated after running the script. The report is appended to the `report.csv` file which is a CSV file. The columns are the following:
+
+start date in UTC,seed in hex,random bytes in hex,time of retrieval of 1st node,2nd node,3rd node,etc.
 
