@@ -3,7 +3,7 @@
 const { Bee, Utils } = require('@ethersphere/bee-js')
 const crypto = require('crypto')
 const { appendFileSync } = require('fs')
-const { formatDateTime, randomShuffle, makeRandomFuncFromSeed, generateRandomArray, retry, timeout } = require('./util')
+const { formatDateTime, randomShuffle, makeRandomFuncFromSeed, retry, timeout, expBackoff } = require('./util')
 
 const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 10 * 60
 const POSTAGE_STAMP = process.env.POSTAGE_STAMP || '0000000000000000000000000000000000000000000000000000000000000000'
@@ -18,7 +18,7 @@ async function retrieveAll(bees, hash) {
     let numRetrieved = 0
     bees.forEach((bee, i) => {
       const start = Date.now()
-      retry(() => timeout(() => bee.downloadData(hash), 60_000)).then(_ => {
+      retry(() => timeout(() => bee.downloadData(hash), 60_000), expBackoff(10_000, 60_000, 1.5)).then(_ => {
         const end = Date.now()
         const elapsedSecs = Math.ceil((end - start) / 1000)
 

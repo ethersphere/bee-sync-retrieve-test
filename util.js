@@ -4,12 +4,25 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(() => resolve(), ms))
 }
 
+function expBackoff(start, max, mul = 2) {
+  let current = start
+
+  return () => {
+    const timeout = current
+    if (timeout * mul <= max) {
+      current = timeout * mul
+    }
+    return timeout
+  }
+}
+
 async function retry(asyncFn, minSleep = 60_000) {
   // eslint-disable-next-line no-constant-condition
   while (true) {
     try {
       return await asyncFn()
     } catch (e) {
+      const sleepTime = typeof minSleep === 'number' ? minSleep : minSleep()
       await sleep(minSleep + Math.floor(Math.random() * minSleep))
     }
   }
@@ -18,7 +31,6 @@ async function retry(asyncFn, minSleep = 60_000) {
 async function timeout(asyncFn, timeoutMsec) {
   const waitTimeout = async () => {
     await sleep(timeoutMsec)
-    // console.error(`timeout timed out ${timeoutMsec}`)
     throw 'timeout'
   }
   return await Promise.race([asyncFn(), waitTimeout()])
@@ -68,4 +80,4 @@ function formatDateTime(date) {
   return date.toISOString().replace('T', ' ').slice(0, 16)
 }
 
-module.exports = { formatDateTime, makeRandomFuncFromSeed, randomShuffle, generateRandomArray, retry, timeout}
+module.exports = { formatDateTime, makeRandomFuncFromSeed, randomShuffle, generateRandomArray, retry, timeout, expBackoff}
