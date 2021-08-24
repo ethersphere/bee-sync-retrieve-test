@@ -35,33 +35,18 @@ This will upload a single random chunk to one node and wait until the chunk is r
 Usually after starting the script the output looks like this:
 
 ```
-Bee https://bee-2.example.com uploaded, hash a0bdcde5c843baa3a1af6f07173c9f5a2f75e29f2f4729deae3223148b7082ce
-{
-  numHashes: 1,
-  hashes: [
-    'a0bdcde5c843baa3a1af6f07173c9f5a2f75e29f2f4729deae3223148b7082ce'
-  ]
-}
-Bee https://bee-2.example.com finished, elapsed time 1 secs, hash a0bdcde5c843baa3a1af6f07173c9f5a2f75e29f2f4729deae3223148b7082ce
-Bee https://bee-0.example.com finished, elapsed time 233 secs, hash a0bdcde5c843baa3a1af6f07173c9f5a2f75e29f2f4729deae3223148b7082ce
-Bee https://bee-3.example.com finished, elapsed time 244 secs, hash a0bdcde5c843baa3a1af6f07173c9f5a2f75e29f2f4729deae3223148b7082ce
+Starting at 2021-08-24 11:49
+Random seed: 1c5afc5d7c9c806cb839755fd6436b56caa8ddac45c839124d4da900b26d1fa7
+Timeout 600 secs
+
+Bee https://bee-2.example.com uploaded, bytes: 1c5afc5d7c9c806cb839755fd6436b56caa8ddac45c839124d4da900b26d1fa7, hash 10744a2546c11f6ae58058872ced84f3474c2dab19fe3e06868c26e075a7d77c
+Bee https://bee-2.example.com finished, elapsed time 1 secs, hash retrieved from 1/3, hash 10744a2546c11f6ae58058872ced84f3474c2dab19fe3e06868c26e075a7d77c
+Bee https://bee-0.example.com finished, elapsed time 233 secs, hash retrieved from 2/3, hash 10744a2546c11f6ae58058872ced84f3474c2dab19fe3e06868c26e075a7d77c
+Bee https://bee-3.example.com finished, elapsed time 244 secs, hash retrieved from 3/3, hash 10744a2546c11f6ae58058872ced84f3474c2dab19fe3e06868c26e075a7d77c
+Hash retrieved from all bees, elapsed time 244 secs, hash 10744a2546c11f6ae58058872ced84f3474c2dab19fe3e06868c26e075a7d77c
 ```
 
-This means that the script randomly selected `bee-2` from `BEE_HOSTS` to upload a single chunk, that has the hash `a0bdcde5c843baa3a1af6f07173c9f5a2f75e29f2f4729deae3223148b7082ce`. Then it prints that `numHashes` is 1, so there is only one chunk uploaded. Also it immediately succeeded in downloading the chunk from `bee-2` and then it waits for the other nodes to retrieve the chunk. Then after waiting 233 and 244 seconds it managed to download it from `bee-0` and `bee-3` respectively. After that it waits until it manages to download from all hosts (in our example for `bee-1`).
-
-### Running multiple tests in parallel
-
-It's possible to run the tests with multiple chunks in parallel by providing the number of chunks as an argument:
-
-```
-node test 10
-```
-
-This will generate 10 random chunks and upload them to random nodes and then it tries to download them in parallel until the retrieval from all nodes is succesful. In that case the script prints a message like this:
-
-```
-Hash retrieved, elapsed time 347 secs, hash a0bdcde5c843baa3a1af6f07173c9f5a2f75e29f2f4729deae3223148b7082ce
-```
+This means that the script randomly selected `bee-2` from `BEE_HOSTS` to upload a single chunk, that has the hash `10744a2546c11f6ae58058872ced84f3474c2dab19fe3e06868c26e075a7d77c`. Also it immediately succeeded in downloading the chunk from `bee-2` and then it waits for the other nodes to retrieve the chunk. Then after waiting 233 and 244 seconds it managed to download it from `bee-0` and `bee-3` respectively. After that it waits until it manages to download from all hosts (in our example for `bee-1`).
 
 ### Checking the results
 
