@@ -1,70 +1,116 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable no-console */
-const { Bee } = require('@ethersphere/bee-js')
+const { Bee, Utils } = require('@ethersphere/bee-js')
 const crypto = require('crypto')
+const { appendFileSync } = require('fs')
+const { formatDateTime, randomShuffle, makeRandomFuncFromSeed, retry, timeout, expBackoff } = require('./util')
 
+const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 10 * 60
 const POSTAGE_STAMP = process.env.POSTAGE_STAMP || '0000000000000000000000000000000000000000000000000000000000000000'
 
 const BEE_HOSTS = (process.env.BEE_HOSTS && process.env.BEE_HOSTS.split(',')) || ['http://localhost:1633']
 const bees = BEE_HOSTS.map(host => new Bee(host))
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(() => resolve(), ms))
-}
+const report = {}
 
-async function tryRetrieveHash(bee, hash) {
-  const start = Date.now()
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    try {
-      const data = await bee.downloadData(hash)
-      const end = Date.now()
+async function retrieveAll(bees, hash) {
+  return new Promise(resolve => {
+    let numRetrieved = 0
+    bees.forEach((bee, i) => {
+      const start = Date.now()
+      retry(() => timeout(() => bee.downloadData(hash), 60_000), expBackoff(10_000, 60_000, 1.5)).then(_ => {
+        const end = Date.now()
+        const elapsedSecs = Math.ceil((end - start) / 1000)
 
-      console.log(`Bee ${bee.url} finished, elapsed time ${Math.ceil((end - start) / 1000)} secs, hash ${hash}`)
+        report.times[numRetrieved] = elapsedSecs
 
-      return data
-    } catch (e) {
-      await sleep(30_000 + Math.floor(Math.random() * 60_000))
-    }
-  }
-}
+        numRetrieved += 1
+        console.log(`Bee ${bee.url} ${i} finished, elapsed time ${elapsedSecs} secs, hash retrieved from ${numRetrieved}/${bees.length}, hash ${hash}`)
 
-function retrieveAllHashes(bee, hashes) {
-  return Promise.all(hashes.map(hash => tryRetrieveHash(bee, hash)))
+        if (numRetrieved === bees.length) {
+          resolve()
+        }
+      })
+    })
+  })
 }
 
 async function retrieveHashFromAll(hash) {
   const start = Date.now()
 
-  await Promise.all(bees.map(bee => tryRetrieveHash(bee, hash)))
+  await retrieveAll(bees, hash)
 
   const end = Date.now()
-  console.log(`Hash retrieved, elapsed time ${Math.ceil((end - start) / 1000)} secs, hash ${hash}`)
+  const elapsedSecs = Math.ceil((end - start) / 1000)
+  console.log(`Hash retrieved from all bees, elapsed time ${elapsedSecs} secs, hash ${hash}`)
+
+  report.values.push(elapsedSecs)
 }
 
-async function uploadRandom() {
-  const randomData = crypto.randomBytes(32)
-  const randomIndex = Math.floor(Math.random() * BEE_HOSTS.length)
-  const randomBee = bees[randomIndex]
-  const params = { 'swarm-chunk-test': '1' }
-  const hash = await randomBee.uploadData(POSTAGE_STAMP, randomData, { axiosOptions: { params } })
+async function getPostageStamp(bee) {
+  try {
+    const batches = await bee.getAllPostageBatch()
+    if (batches.length > 0) {
+      return batches[0].batchID
+    }
+    return POSTAGE_STAMP
+  } catch (e) {
+    return POSTAGE_STAMP
+  }
+}
 
-  console.log(`Bee ${randomBee.url} uploaded, hash ${hash}`)
+async function uploadToRandomBee(randomBee, randomBytes) {
+  const params = { 'swarm-chunk-test': '1' }
+  const postageStamp = await getPostageStamp(randomBee)
+  const hash = await retry(() => randomBee.uploadData(postageStamp, randomBytes, { axiosOptions: { params } }))
+
+  const randomBytesHex = Utils.Hex.bytesToHex(randomBytes)
+  console.log(`Bee ${randomBee.url} uploaded, bytes: ${randomBytesHex}, hash ${hash}`)
+
+  report.hash = hash
+  report.times = Array(bees.length).fill([])
 
   return hash
 }
 
+function exitWithReport(code) {
+  try {
+    const csvLine = [report.startDate, report.seed, report.hash, ...report.times].join(',') + '\n'
+    appendFileSync('report.csv', csvLine)
+  } catch (e) {
+    console.error(e)
+    code = 1
+  } finally {
+    console.log('\n')
+    process.exit(code)
+  }
+}
 async function uploadAndCheck() {
-  const numHashes = (process.argv[2] && parseInt(process.argv[2])) || 1
+  const seedBytes = (process.argv[2] && Utils.Hex.hexToBytes(process.argv[2])) || crypto.randomBytes(32)
+  const seedHex = Utils.Hex.bytesToHex(seedBytes)
+  report.seed = seedHex
 
-  const hashes = await Promise.all(Array(numHashes).fill(numHashes).map(uploadRandom))
+  const startDate = formatDateTime(new Date())
+  report.startDate = startDate
+  console.log(`Starting at ${startDate}`)
+  console.log(`Random seed: ${seedHex}`)
+  console.log(`Timeout ${TIMEOUT} secs`)
 
-  console.log({ numHashes, hashes })
+  report.values = []
+  report.hashes = {}
 
-  await Promise.all(hashes.map(retrieveHashFromAll))
+  const randomFunc = makeRandomFuncFromSeed(seedBytes)
+  const randomBees = randomShuffle(bees, randomFunc)
+  const randomBee = randomBees[0]
+
+  const hash = await uploadToRandomBee(randomBee, seedBytes)
+  setTimeout(() => { console.error(`Timeout after ${TIMEOUT} secs`); exitWithReport(1) }, TIMEOUT * 1000)
+
+  await retrieveHashFromAll(hash)
+  exitWithReport(0)
 }
 
 uploadAndCheck().catch(error => {
   console.error({ error })
-  process.exit(1)
+  exitWithReport(1)
 })
