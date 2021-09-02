@@ -35,7 +35,7 @@ async function retrieveAll(bees, hash) {
   })
 }
 
-async function retrieveHashFromAll(hash) {
+async function retriveWithReport(bees, hash) {
   const start = Date.now()
 
   await retrieveAll(bees, hash)
@@ -101,12 +101,16 @@ async function uploadAndCheck() {
 
   const randomFunc = makeRandomFuncFromSeed(seedBytes)
   const randomBees = randomShuffle(bees, randomFunc)
-  const randomBee = randomBees[0]
+  const numUploadNodes = 2
+  const uploadBees = randomBees.slice(0, numUploadNodes)
+  const downloadBees = randomBees.slice(numUploadNodes)
 
-  const hash = await uploadToRandomBee(randomBee, seedBytes)
+  const hashes = await Promise.all(uploadBees.map(bee => uploadToRandomBee(bee, seedBytes)))
   setTimeout(() => { console.error(`Timeout after ${TIMEOUT} secs`); exitWithReport(1) }, TIMEOUT * 1000)
 
-  await retrieveHashFromAll(hash)
+  console.log({hashes})
+
+  await retriveWithReport(downloadBees, hashes[0])
   exitWithReport(0)
 }
 
