@@ -3,7 +3,7 @@
 const { Bee } = require('@ethersphere/bee-js')
 
 const BEE_HOSTS = (process.env.BEE_HOSTS && process.env.BEE_HOSTS.split(',')) || ['http://localhost:1633']
-const bees = BEE_HOSTS.map(host => new Bee(host))
+const bees = BEE_HOSTS.filter(host => host.length !== 0).map(host => new Bee(host))
 
 async function tryRetrieveHash(bee, hash) {
   const start = Date.now()
