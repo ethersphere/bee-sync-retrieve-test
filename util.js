@@ -22,6 +22,7 @@ async function retry(asyncFn, minSleep = 60_000) {
     try {
       return await asyncFn()
     } catch (e) {
+      console.error({e})
       const sleepTime = typeof minSleep === 'number' ? minSleep : minSleep()
       await sleep(Math.floor(sleepTime + Math.random() * sleepTime))
     }
@@ -37,7 +38,7 @@ async function timeout(asyncFn, timeoutMsec) {
 }
 
 function randomFromBytes(randomBytes) {
-  const hex = Utils.Hex.bytesToHex(randomBytes).slice(0, 8)
+  const hex = Utils.bytesToHex(randomBytes).slice(0, 8)
   const num = parseInt(hex, 16)
   return num / 0x100000000
 }
@@ -77,7 +78,7 @@ function makeRandomFuncFromSeed(seedBytes) {
 }
 
 function formatDateTime(date) {
-  return date.toISOString().replace('T', ' ').slice(0, 16)
+  return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
 module.exports = { formatDateTime, makeRandomFuncFromSeed, randomShuffle, generateRandomArray, retry, timeout, expBackoff}

@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@ethersphere/bee-js": "^1.1.1"
+    "@ethersphere/bee-js": "3.0.0"
   }
 }

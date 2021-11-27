@@ -1,17 +1,21 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable no-console */
-const { Bee, Utils } = require('@ethersphere/bee-js')
+const { Bee, Utils, BeeDebug } = require('@ethersphere/bee-js')
 const crypto = require('crypto')
 const { appendFileSync } = require('fs')
 const { formatDateTime, randomShuffle, makeRandomFuncFromSeed, retry, timeout, expBackoff } = require('./util')
 
-const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 10 * 60
+const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 2 * 60
 const POSTAGE_STAMP = process.env.POSTAGE_STAMP || '0000000000000000000000000000000000000000000000000000000000000000'
 
 const BEE_HOSTS = (process.env.BEE_HOSTS && process.env.BEE_HOSTS.split(',')) || ['http://localhost:1633']
-const bees = BEE_HOSTS.map(host => new Bee(host))
+const bees = BEE_HOSTS.filter(host => host.length !== 0).map(host => new Bee(host, { onRequest }))
 
 const report = {}
+
+function onRequest(request) {
+  // console.debug({ request })
+}
 
 async function retrieveAll(bees, hash) {
   return new Promise(resolve => {
@@ -25,7 +29,7 @@ async function retrieveAll(bees, hash) {
         report.times[numRetrieved] = elapsedSecs
 
         numRetrieved += 1
-        console.log(`Bee ${bee.url} ${i} finished, elapsed time ${elapsedSecs} secs, hash retrieved from ${numRetrieved}/${bees.length}, hash ${hash}`)
+        console.log(`Bee ${bee.url} [${i}] finished, elapsed time ${elapsedSecs} secs, hash retrieved from ${numRetrieved}/${bees.length}`)
 
         if (numRetrieved === bees.length) {
           resolve()
@@ -47,9 +51,15 @@ async function retriveWithReport(bees, hash) {
   report.values.push(elapsedSecs)
 }
 
+function makeBeeDebug(bee) {
+  const beeDebugUrl = bee.url.replace(':1633', ':1635')
+  return new BeeDebug(beeDebugUrl)
+}
+
 async function getPostageStamp(bee) {
   try {
-    const batches = await bee.getAllPostageBatch()
+    const beeDebug = makeBeeDebug(bee)
+    const batches = await beeDebug.getAllPostageBatch()
     if (batches.length > 0) {
       return batches[0].batchID
     }
@@ -62,9 +72,9 @@ async function getPostageStamp(bee) {
 async function uploadToRandomBee(randomBee, randomBytes) {
   const params = { 'swarm-chunk-test': '1' }
   const postageStamp = await getPostageStamp(randomBee)
-  const hash = await retry(() => randomBee.uploadData(postageStamp, randomBytes, { axiosOptions: { params } }))
+  const { reference: hash } = await retry(() => randomBee.uploadData(postageStamp, randomBytes, { axiosOptions: { params } }))
 
-  const randomBytesHex = Utils.Hex.bytesToHex(randomBytes)
+  const randomBytesHex = Utils.bytesToHex(randomBytes)
   console.log(`Bee ${randomBee.url} uploaded, bytes: ${randomBytesHex}, hash ${hash}`)
 
   report.hash = hash
@@ -86,8 +96,8 @@ function exitWithReport(code) {
   }
 }
 async function uploadAndCheck() {
-  const seedBytes = (process.argv[2] && Utils.Hex.hexToBytes(process.argv[2])) || crypto.randomBytes(32)
-  const seedHex = Utils.Hex.bytesToHex(seedBytes)
+  const seedBytes = (process.argv[2] && Utils.hexToBytes(process.argv[2])) || crypto.randomBytes(32)
+  const seedHex = Utils.bytesToHex(seedBytes)
   report.seed = seedHex
 
   const startDate = formatDateTime(new Date())
@@ -95,13 +105,14 @@ async function uploadAndCheck() {
   console.log(`Starting at ${startDate}`)
   console.log(`Random seed: ${seedHex}`)
   console.log(`Timeout ${TIMEOUT} secs`)
+  console.log(`Bee hosts: ${BEE_HOSTS}`)
 
   report.values = []
   report.hashes = {}
 
   const randomFunc = makeRandomFuncFromSeed(seedBytes)
   const randomBees = randomShuffle(bees, randomFunc)
-  const numUploadNodes = 2
+  const numUploadNodes = 1
   const uploadBees = randomBees.slice(0, numUploadNodes)
   const downloadBees = randomBees.slice(numUploadNodes)
 
