@@ -22,7 +22,6 @@ async function retry(asyncFn, minSleep = 60_000) {
     try {
       return await asyncFn()
     } catch (e) {
-      console.error({e})
       const sleepTime = typeof minSleep === 'number' ? minSleep : minSleep()
       await sleep(Math.floor(sleepTime + Math.random() * sleepTime))
     }
@@ -53,6 +52,26 @@ function generateRandomArray(numRandom, seed) {
   return randomArray
 }
 
+function randomRange(min, max, randomFunc = Math.random) {
+  const diff = max - min
+  return Math.floor(randomFunc() * diff + min)
+}
+
+function generateRandomBytes(length, seed) {
+  const randomBuffer = Buffer.alloc(length)
+  let random = seed
+  let offset = 0
+  while (offset < length) {
+    random = Utils.keccak256Hash(random)
+    if (length - offset < 32) {
+      random = random.slice(0, length - offset)
+    }
+    randomBuffer.set(random, offset)
+    offset += random.length
+  }
+  return randomBuffer
+}
+
 function randomShuffle(inputArray, randomFunc = Math.random) {
   const arr = [...inputArray]
   let currentIndex = arr.length
@@ -81,4 +100,14 @@ function formatDateTime(date) {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
-module.exports = { formatDateTime, makeRandomFuncFromSeed, randomShuffle, generateRandomArray, retry, timeout, expBackoff}
+module.exports = {
+  formatDateTime,
+  makeRandomFuncFromSeed,
+  randomShuffle,
+  generateRandomArray,
+  retry,
+  timeout,
+  expBackoff,
+  randomRange,
+  generateRandomBytes,
+}
