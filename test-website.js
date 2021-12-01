@@ -167,7 +167,6 @@ async function uploadFiles(randomBee, files) {
   console.log(`Bee ${randomBee.url} uploaded, hash ${hash}`)
 
   report.hash = hash
-  report.times = Array(bees.length).fill([])
 
   return hash
 }
