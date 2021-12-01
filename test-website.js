@@ -189,7 +189,7 @@ async function uploadFiles(randomBee, files) {
 
 function exitWithReport(code) {
   try {
-    const csvLine = [report.startDate, report.seed, report.hash, ...report.times].join(',') + '\n'
+    const csvLine = [report.startDate, report.seed, report.hash, report.size, ...report.times].join(',') + '\n'
     appendFileSync('report-website.csv', csvLine)
   } catch (e) {
     console.error(e)
