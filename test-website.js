@@ -61,6 +61,8 @@ async function retrieveWebsite(bee, files, hash) {
   const end = Date.now()
   const elapsedSecs = Math.ceil((end - start) / 1000)
   console.log(`Website retrieved from ${bee.url}, elapsed time ${elapsedSecs} secs, hash ${hash}`)
+
+  report.values.push(elapsedSecs)
 }
 
 async function retrieveWithReport(bees, files, hash) {
@@ -75,8 +77,6 @@ async function retrieveWithReport(bees, files, hash) {
   const end = Date.now()
   const elapsedSecs = Math.ceil((end - start) / 1000)
   console.log(`Website retrieved from all bees, elapsed time ${elapsedSecs} secs, hash ${hash}`)
-
-  report.values.push(elapsedSecs)
 }
 
 function makeBeeDebug(bee) {
@@ -175,7 +175,7 @@ async function uploadFiles(randomBee, files) {
 function exitWithReport(code) {
   try {
     const csvLine = [report.startDate, report.seed, report.hash, ...report.times].join(',') + '\n'
-    appendFileSync('report.csv', csvLine)
+    appendFileSync('report-website.csv', csvLine)
   } catch (e) {
     console.error(e)
     code = 1
