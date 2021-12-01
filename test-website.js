@@ -189,7 +189,7 @@ async function uploadFiles(randomBee, files) {
 
 function exitWithReport(code) {
   try {
-    const csvLine = [report.startDate, report.seed, report.hash, report.size, ...report.times].join(',') + '\n'
+    const csvLine = [report.startDate, report.seed, report.hash, report.size, report.numFiles, ...report.times].join(',') + '\n'
     appendFileSync('report-website.csv', csvLine)
   } catch (e) {
     console.error(e)
@@ -223,6 +223,7 @@ async function uploadAndCheck() {
 
   const files = makeRandomWebsiteFiles(seedBytes)
   report.size = totalSize(files)
+  report.numFiles = files.length
 
   const hashes = await Promise.all(uploadBees.map(bee => uploadFiles(bee, files)))
   setTimeout(() => { console.error(`Timeout after ${TIMEOUT} secs`); exitWithReport(1) }, TIMEOUT * 1000)
