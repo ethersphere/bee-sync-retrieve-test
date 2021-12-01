@@ -110,4 +110,5 @@ module.exports = {
   expBackoff,
   randomRange,
   generateRandomBytes,
+  sleep,
 }

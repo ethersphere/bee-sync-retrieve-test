@@ -3,9 +3,9 @@
 const { Bee, Utils, BeeDebug, BeeError } = require('@ethersphere/bee-js')
 const crypto = require('crypto')
 const { appendFileSync } = require('fs')
-const { formatDateTime, randomShuffle, makeRandomFuncFromSeed, retry, timeout, expBackoff, generateRandomBytes, generateRandomArray, randomRange } = require('./util')
+const { formatDateTime, randomShuffle, makeRandomFuncFromSeed, retry, timeout, expBackoff, generateRandomBytes, generateRandomArray, randomRange, sleep } = require('./util')
 
-const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 20 * 60
+const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 20 + 2 * 60
 const POSTAGE_STAMP = process.env.POSTAGE_STAMP || '0000000000000000000000000000000000000000000000000000000000000000'
 
 const BEE_HOSTS = (process.env.BEE_HOSTS && process.env.BEE_HOSTS.split(',')) || ['http://localhost:1633']
@@ -52,6 +52,10 @@ async function retrieveAll(bees, hash, path) {
 }
 
 async function retrieveWithReport(bees, files, hash) {
+  const waitTime = 2 * 60_000
+  console.log(`Waiting ${Math.floor(waitTime / 1000)} seconds...`)
+  await sleep(waitTime)
+
   const start = Date.now()
 
   const filePaths = files.map(file => ({
