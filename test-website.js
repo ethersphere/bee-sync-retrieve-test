@@ -31,6 +31,8 @@ async function downloadFile(bee, hash, path) {
 }
 
 async function retrieveFile(bee, hash, path) {
+  console.log(`Retrieving ${bee.url}/${hash}/${path}`)
+
   const start = Date.now()
   await retry(
     () => timeout(
@@ -40,7 +42,7 @@ async function retrieveFile(bee, hash, path) {
   const end = Date.now()
   const elapsedSecs = Math.ceil((end - start) / 1000)
 
-  console.log(`Bee ${bee.url}/${hash}/${path} [${i}] finished, elapsed time ${elapsedSecs} secs`)
+  console.log(`Bee ${bee.url}/${hash}/${path} finished, elapsed time ${elapsedSecs} secs`)
 }
 
 async function retrieveWebsite(bee, files, hash) {
@@ -50,7 +52,7 @@ async function retrieveWebsite(bee, files, hash) {
 
   // retrieve index document first
   const indexDocument = files[0]
-  await retrieveFile(bees, hash, indexDocument.path)
+  await retrieveFile(bee, hash, indexDocument.path)
 
   // then retrieve assets in parallel
   const assets = files.slice(1)
