@@ -62,7 +62,7 @@ async function retrieveWebsite(bee, files, hash) {
   const elapsedSecs = Math.ceil((end - start) / 1000)
   console.log(`Website retrieved from ${bee.url}, elapsed time ${elapsedSecs} secs, hash ${hash}`)
 
-  report.values.push(elapsedSecs)
+  report.times.push(elapsedSecs)
 }
 
 async function retrieveWithReport(bees, files, hash) {
@@ -196,7 +196,7 @@ async function uploadAndCheck() {
   console.log(`Timeout ${TIMEOUT} secs`)
   console.log(`Bee hosts: ${BEE_HOSTS}`)
 
-  report.values = []
+  report.times = []
   report.hashes = {}
 
   const randomFunc = makeRandomFuncFromSeed(seedBytes)
