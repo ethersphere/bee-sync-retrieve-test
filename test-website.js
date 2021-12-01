@@ -5,7 +5,7 @@ const crypto = require('crypto')
 const { appendFileSync } = require('fs')
 const { formatDateTime, randomShuffle, makeRandomFuncFromSeed, retry, timeout, expBackoff, generateRandomBytes, generateRandomArray, randomRange, sleep } = require('./util')
 
-const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 20 + 2 * 60
+const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 10 * 60
 const POSTAGE_STAMP = process.env.POSTAGE_STAMP || '0000000000000000000000000000000000000000000000000000000000000000'
 
 const BEE_HOSTS = (process.env.BEE_HOSTS && process.env.BEE_HOSTS.split(',')) || ['http://localhost:1633']
@@ -17,38 +17,48 @@ function onRequest(request) {
   // console.debug({ request })
 }
 
-async function retrieveAll(bees, hash, path) {
-  const downloadFile = async (bee) => {
-    try {
-      return await bee.downloadFile(hash, path)
-    } catch (e) {
-      if (e instanceof BeeError && e.status && e.status !== 404) {
-        console.error({bee, e, hash, path})
-      } else if (e === 'timeout') {
-        console.error({bee, e, hash, path})
-      }
-      throw e
+async function downloadFile(bee, hash, path) {
+  try {
+    return await bee.downloadFile(hash, path)
+  } catch (e) {
+    if (e instanceof BeeError && e.status && e.status !== 404) {
+      console.error({ bee, e, hash, path })
+    } else if (e === 'timeout') {
+      console.error({ bee, e, hash, path })
     }
+    throw e
   }
-  return new Promise(resolve => {
-    let numRetrieved = 0
-    bees.forEach((bee, i) => {
-      const start = Date.now()
-      retry(() => timeout(() => downloadFile(bee), 60_000), expBackoff(10_000, 60_000, 1.5)).then(_ => {
-        const end = Date.now()
-        const elapsedSecs = Math.ceil((end - start) / 1000)
+}
 
-        report.times[numRetrieved] = elapsedSecs
+async function retrieveFile(bee, hash, path) {
+  const start = Date.now()
+  await retry(
+    () => timeout(
+      () => downloadFile(bee, hash, path), 20_000)
+    , expBackoff(3_000, 60_000, 1.5)
+  )
+  const end = Date.now()
+  const elapsedSecs = Math.ceil((end - start) / 1000)
 
-        numRetrieved += 1
-        console.log(`Bee ${bee.url}/${hash}/${path} [${i}] finished, elapsed time ${elapsedSecs} secs, hash retrieved from ${numRetrieved}/${bees.length}`)
+  console.log(`Bee ${bee.url}/${hash}/${path} [${i}] finished, elapsed time ${elapsedSecs} secs`)
+}
 
-        if (numRetrieved === bees.length) {
-          resolve()
-        }
-      })
-    })
-  })
+async function retrieveWebsite(bee, files, hash) {
+  console.log(`Retrieving website from ${bee.url}`)
+
+  const start = Date.now()
+
+  // retrieve index document first
+  const indexDocument = files[0]
+  await retrieveFile(bees, hash, indexDocument.path)
+
+  // then retrieve assets in parallel
+  const assets = files.slice(1)
+  await Promise.all(assets.map(asset => retrieveFile(bee, hash, asset.path)))
+
+  const end = Date.now()
+  const elapsedSecs = Math.ceil((end - start) / 1000)
+  console.log(`Website retrieved from ${bee.url}, elapsed time ${elapsedSecs} secs, hash ${hash}`)
 }
 
 async function retrieveWithReport(bees, files, hash) {
@@ -58,22 +68,11 @@ async function retrieveWithReport(bees, files, hash) {
 
   const start = Date.now()
 
-  const filePaths = files.map(file => ({
-    reference: hash,
-    path: file.path,
-  }))
-
-  // retrieve index document first
-  const indexDocument = filePaths[0]
-  await retrieveAll(bees, indexDocument.reference, indexDocument.path)
-
-  // then retrieve assets in parallel
-  const assets = filePaths.slice(1)
-  await Promise.all(assets.map(asset => retrieveAll(bees, asset.reference, asset.path)))
+  await Promise.all(bees.map(bee => retrieveWebsite(bee, files, hash)))
 
   const end = Date.now()
   const elapsedSecs = Math.ceil((end - start) / 1000)
-  console.log(`Hash retrieved from all bees, elapsed time ${elapsedSecs} secs, hash ${hash}`)
+  console.log(`Website retrieved from all bees, elapsed time ${elapsedSecs} secs, hash ${hash}`)
 
   report.values.push(elapsedSecs)
 }
