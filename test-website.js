@@ -31,8 +31,6 @@ async function downloadFile(bee, hash, path) {
 }
 
 async function retrieveFile(bee, hash, path) {
-  console.log(`Retrieving ${bee.url}/${hash}/${path}`)
-
   const start = Date.now()
   await retry(
     () => timeout(
@@ -46,8 +44,6 @@ async function retrieveFile(bee, hash, path) {
 }
 
 async function retrieveWebsite(bee, files, hash) {
-  console.log(`Retrieving website from ${bee.url}`)
-
   const start = Date.now()
 
   // retrieve index document first
@@ -107,50 +103,70 @@ function makeRandomFile(name, minSize, maxSize, randomSeed) {
     }
 }
 
-function makeRandomFontFiles(randomSeed) {
-  const numFontFiles = 4
-  const fileSeeds = generateRandomArray(numFontFiles, randomSeed)
-  const makeRandomFontFile = (seed, name) => makeRandomFile(name, 100_000, 500_000, seed)
-  return fileSeeds.map((fileSeed, i) => makeRandomFontFile(fileSeed, `font${i}.ttf`))
+function makeRandomFontFiles(randomSeed, sizeLimit) {
+  return makeRandomFiles({
+    randomSeed,
+    numFiles: 4,
+    minSize: 100_000,
+    maxSize: 500_000,
+    name: 'fonts',
+    ext: 'ttf',
+    sizeLimit,
+  })
 }
 
-function makeRandomImageFiles(randomSeed) {
-  const numImageFiles = 8
-  const fileSeeds = generateRandomArray(numImageFiles, randomSeed)
-  const makeRandomFontFile = (seed, name) => makeRandomFile(name, 10_000, 500_000, seed)
-  return fileSeeds.map((fileSeed, i) => makeRandomFontFile(fileSeed, `image${i}.png`))
+function makeRandomImageFiles(randomSeed, sizeLimit) {
+  return makeRandomFiles({
+    randomSeed,
+    numFiles: 15,
+    minSize: 10_000,
+    maxSize: 500_000,
+    name: 'image',
+    ext: 'png',
+    sizeLimit,
+  })
 }
 
-function makeRandomFiles({ randomSeed, numFiles, minSize, maxSize, name, ext }) {
+function makeRandomFiles({ randomSeed, numFiles, minSize, maxSize, name, ext, sizeLimit }) {
   const fileSeeds = generateRandomArray(numFiles, randomSeed)
-  const makeRandomFontFile = (seed, name) => makeRandomFile(name, minSize, maxSize, seed)
-  return fileSeeds.map((fileSeed, i) => makeRandomFontFile(fileSeed, `${name}${i}${ext}`))
+  const makeRandomFontFile = (seed, name) => makeRandomFile(name, Math.min(minSize, sizeLimit), Math.min(maxSize, sizeLimit), seed)
+  return fileSeeds
+    .map((fileSeed, i) => {
+      const randomFile = makeRandomFontFile(fileSeed, `${name}${i}${ext}`)
+      sizeLimit -= randomFile.data.length
+      return randomFile
+    })
+    .filter(file => file.data.length !== 0)
+}
+
+function totalSize(files) {
+  return files.reduce((prev, curr) => prev + curr.data.length, 0)
 }
 
 function makeRandomWebsiteFiles(randomSeed) {
     const numFiles = 100
     const fileSeeds = generateRandomArray(numFiles, randomSeed)
+    let sizeLimit = 5_000_000
 
     const indexSeed = fileSeeds[0]
     const indexFile = makeRandomFile('index.html', 10_000, 100_000, indexSeed)
+    sizeLimit -= indexFile.data.length
 
     // assets
 
     const jsBundleSeed = fileSeeds[1]
     const jsBundleFile = makeRandomFile('index.js', 100_000, 200_000, jsBundleSeed)
+    sizeLimit -= jsBundleFile.data.length
 
     const fontSeed = fileSeeds[2]
-    const fontFiles = makeRandomFontFiles(fontSeed)
+    const fontFiles = makeRandomFontFiles(fontSeed, sizeLimit)
+    sizeLimit -= totalSize(fontFiles)
 
     const imageSeed = fileSeeds[3]
-    const imageFiles = makeRandomImageFiles(imageSeed)
+    const imageFiles = makeRandomImageFiles(imageSeed, sizeLimit)
+    sizeLimit -= totalSize(imageFiles)
 
     return [indexFile, jsBundleFile, ...fontFiles, ...imageFiles]
-}
-
-async function uploadToRandomBee(randomBee, randomBytes) {
-  const files = makeRandomFiles(randomBytes)
-  return uploadFiles(randomBee, files)
 }
 
 async function uploadFiles(randomBee, files) {
@@ -197,6 +213,7 @@ async function uploadAndCheck() {
 
   report.times = []
   report.hashes = {}
+  report.size = 0
 
   const randomFunc = makeRandomFuncFromSeed(seedBytes)
   const randomBees = randomShuffle(bees, randomFunc)
@@ -205,6 +222,7 @@ async function uploadAndCheck() {
   const downloadBees = randomBees.slice(numUploadNodes)
 
   const files = makeRandomWebsiteFiles(seedBytes)
+  report.size = totalSize(files)
 
   const hashes = await Promise.all(uploadBees.map(bee => uploadFiles(bee, files)))
   setTimeout(() => { console.error(`Timeout after ${TIMEOUT} secs`); exitWithReport(1) }, TIMEOUT * 1000)
