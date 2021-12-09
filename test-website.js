@@ -62,9 +62,7 @@ async function retrieveWebsite(bee, files, hash) {
 }
 
 async function retrieveWithReport(bees, files, hash) {
-  const waitTime = 2 * 60_000
-  console.log(`Waiting ${Math.floor(waitTime / 1000)} seconds...`)
-  await sleep(waitTime)
+
 
   const start = Date.now()
 
@@ -169,18 +167,32 @@ function makeRandomWebsiteFiles(randomSeed) {
     return [indexFile, jsBundleFile, ...fontFiles, ...imageFiles]
 }
 
-async function uploadFiles(randomBee, files) {
+async function uploadFiles(uploadBee, files) {
   console.debug({ sizes: files.map(file => file.data.length) })
   console.debug({ totalSize: files.reduce((prev, curr) => prev + curr.data.length, 0)})
 
   const params = { 'swarm-chunk-test': '1' }
-  const postageStamp = await getPostageStamp(randomBee)
-  const { reference: hash } = await retry(() => randomBee.uploadCollection(postageStamp, files, {
+  const postageStamp = await getPostageStamp(uploadBee)
+  console.log("using stamp", postageStamp)
+  let tag = await (uploadBee.createTag())
+  console.log("using tag", tag.uid)
+  const { reference: hash } = await retry(() => uploadBee.uploadCollection(postageStamp, files, {
     axiosOptions: { params },
     indexDocument: 'index.html',
+    tag: tag.uid
   }))
-
-  console.log(`Bee ${randomBee.url} uploaded, hash ${hash}`)
+  console.log("file processed with reference: ", hash)
+  tag = await uploadBee.retrieveTag(tag.uid)
+  let start = Date.now()
+  do {
+    await sleep(1000)
+    tag = await uploadBee.retrieveTag(tag.uid)
+    console.log("waiting for upload to be finished...\n", tag)
+  }
+  while(tag.synced < tag.total) 
+  report.uploadTime = Math.ceil((Date.now() - start) / 1000)
+  console.log('sync complete. Took: ', report.uploadTime)
+  console.log(`Bee ${uploadBee.url} uploaded, hash ${hash}`)
 
   report.hash = hash
 
@@ -189,7 +201,7 @@ async function uploadFiles(randomBee, files) {
 
 function exitWithReport(code) {
   try {
-    const csvLine = [report.startDate, report.seed, report.hash, report.size, report.numFiles, ...report.times].join(',') + '\n'
+    const csvLine = [report.startDate, report.seed, report.hash, report.size, report.numFiles, report.uploadTime, ...report.times].join(',') + '\n'
     appendFileSync('report-website.csv', csvLine)
   } catch (e) {
     console.error(e)
