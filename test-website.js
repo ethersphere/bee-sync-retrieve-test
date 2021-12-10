@@ -132,7 +132,7 @@ function makeRandomFiles({ randomSeed, numFiles, minSize, maxSize, name, ext, si
   const makeRandomFontFile = (seed, name) => makeRandomFile(name, Math.min(minSize, sizeLimit), Math.min(maxSize, sizeLimit), seed)
   return fileSeeds
     .map((fileSeed, i) => {
-      const randomFile = makeRandomFontFile(fileSeed, `${name}${i}${ext}`)
+      const randomFile = makeRandomFontFile(fileSeed, `${name}${i}.${ext}`)
       sizeLimit -= randomFile.data.length
       return randomFile
     })
