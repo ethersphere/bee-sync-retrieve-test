@@ -223,10 +223,12 @@ async function uploadAndCheck() {
 
   const files = makeRandomWebsiteFiles(seedBytes)
   report.size = totalSize(files)
-  report.numFiles = files.length
 
-  const hashes = await Promise.all(uploadBees.map(bee => uploadFiles(bee, files)))
   setTimeout(() => { console.error(`Timeout after ${TIMEOUT} secs`); exitWithReport(1) }, TIMEOUT * 1000)
+  const hashes = await Promise.all(uploadBees.map(bee => uploadFiles(bee, files)))
+
+  // only set numFiles after the upload was successful so that it can be seen from the report
+  report.numFiles = files.length
 
   console.log({hashes})
 
