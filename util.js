@@ -37,7 +37,7 @@ async function timeout(asyncFn, timeoutMsec) {
 }
 
 function randomFromBytes(randomBytes) {
-  const hex = Utils.Hex.bytesToHex(randomBytes).slice(0, 8)
+  const hex = Utils.bytesToHex(randomBytes).slice(0, 8)
   const num = parseInt(hex, 16)
   return num / 0x100000000
 }
@@ -50,6 +50,26 @@ function generateRandomArray(numRandom, seed) {
     random = Utils.keccak256Hash(random)
   }
   return randomArray
+}
+
+function randomRange(min, max, randomFunc = Math.random) {
+  const diff = max - min
+  return Math.floor(randomFunc() * diff + min)
+}
+
+function generateRandomBytes(length, seed) {
+  const randomBuffer = Buffer.alloc(length)
+  let random = seed
+  let offset = 0
+  while (offset < length) {
+    random = Utils.keccak256Hash(random)
+    if (length - offset < 32) {
+      random = random.slice(0, length - offset)
+    }
+    randomBuffer.set(random, offset)
+    offset += random.length
+  }
+  return randomBuffer
 }
 
 function randomShuffle(inputArray, randomFunc = Math.random) {
@@ -77,7 +97,18 @@ function makeRandomFuncFromSeed(seedBytes) {
 }
 
 function formatDateTime(date) {
-  return date.toISOString().replace('T', ' ').slice(0, 16)
+  return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
-module.exports = { formatDateTime, makeRandomFuncFromSeed, randomShuffle, generateRandomArray, retry, timeout, expBackoff}
+module.exports = {
+  formatDateTime,
+  makeRandomFuncFromSeed,
+  randomShuffle,
+  generateRandomArray,
+  retry,
+  timeout,
+  expBackoff,
+  randomRange,
+  generateRandomBytes,
+  sleep,
+}
