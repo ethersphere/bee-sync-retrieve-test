@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "while true; do node test || break; sleep 30; done"
+    "test": "while true; do node test.js 500000 $(( $RANDOM % 500 + 1 )) || break; sleep 1000 ; done"
   },
   "keywords": [],
   "author": "",
