@@ -10,12 +10,13 @@ async function tryRetrieveHash(bee, hash) {
   try {
     await bee.downloadData(hash)
     const end = Date.now()
-
-    console.log(`Bee ${bee.url} finished, elapsed time ${Math.ceil((end - start) / 1000)} secs, hash ${hash}`)
+    const elapsed = end - start
+    console.log(`Bee ${bee.url} finished, elapsed time ${Math.ceil((elapsed) / 1000)} secs, hash ${hash}`)
 
     return {
       bee: bee.url,
       hash,
+      elapsed,
     }
   } catch (e) {
     return {

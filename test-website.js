@@ -5,11 +5,15 @@ const crypto = require('crypto')
 const { appendFileSync } = require('fs')
 const { formatDateTime, randomShuffle, makeRandomFuncFromSeed, retry, timeout, expBackoff, generateRandomBytes, generateRandomArray, randomRange, sleep } = require('./util')
 
-const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 10 * 60
+const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 60 * 60
 const POSTAGE_STAMP = process.env.POSTAGE_STAMP || '0000000000000000000000000000000000000000000000000000000000000000'
 
 const BEE_HOSTS = (process.env.BEE_HOSTS && process.env.BEE_HOSTS.split(',')) || ['http://localhost:1633']
-const bees = BEE_HOSTS.filter(host => host.length !== 0).map(host => new Bee(host, { onRequest }))
+const deferredUpload = false
+const defaultHeaders = {
+  'swarm-deferred-upload': deferredUpload,
+}
+const bees = BEE_HOSTS.filter(host => host.length !== 0).map(host => new Bee(host, { onRequest, defaultHeaders }))
 
 const report = {}
 
@@ -217,7 +221,7 @@ async function uploadAndCheck() {
 
   const randomFunc = makeRandomFuncFromSeed(seedBytes)
   const randomBees = randomShuffle(bees, randomFunc)
-  const numUploadNodes = 1
+  const numUploadNodes = randomBees.length
   const uploadBees = randomBees.slice(0, numUploadNodes)
   const downloadBees = randomBees.slice(numUploadNodes)
 
