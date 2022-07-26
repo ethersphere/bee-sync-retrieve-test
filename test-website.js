@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable no-console */
-const { Bee, Utils, BeeDebug, BeeError } = require('@ethersphere/bee-js')
+const { Bee, BeeDebug, BeeError, Utils } = require('@ethersphere/bee-js')
+const { makeChunkedFile } = require('@fairdatasociety/bmt-js')
 const crypto = require('crypto')
 const { appendFileSync } = require('fs')
 const { formatDateTime, randomShuffle, makeRandomFuncFromSeed, retry, timeout, expBackoff, generateRandomBytes, generateRandomArray, randomRange, sleep } = require('./util')
@@ -9,7 +10,7 @@ const TIMEOUT = (process.env.TIMEOUT && parseInt(process.env.TIMEOUT, 10)) || 60
 const POSTAGE_STAMP = process.env.POSTAGE_STAMP || '0000000000000000000000000000000000000000000000000000000000000000'
 
 const BEE_HOSTS = (process.env.BEE_HOSTS && process.env.BEE_HOSTS.split(',')) || ['http://localhost:1633']
-const deferredUpload = false
+const deferredUpload = true
 const defaultHeaders = {
   'swarm-deferred-upload': deferredUpload,
 }
@@ -100,10 +101,15 @@ async function getPostageStamp(bee) {
 function makeRandomFile(name, minSize, maxSize, randomSeed) {
     const fileSize = randomRange(minSize, maxSize, makeRandomFuncFromSeed(randomSeed))
     const data = Uint8Array.from(generateRandomBytes(fileSize, randomSeed))
+    const chunkedFile = makeChunkedFile(data)
+    // console.debug({ data, chunkedFile })
+    const address = chunkedFile.address()
+    const hash = Utils.bytesToHex<32>(address)
 
     return {
         path: name,
         data,
+        hash,
     }
 }
 
@@ -174,17 +180,18 @@ function makeRandomWebsiteFiles(randomSeed) {
 }
 
 async function uploadFiles(randomBee, files) {
-  console.debug({ sizes: files.map(file => file.data.length) })
-  console.debug({ totalSize: files.reduce((prev, curr) => prev + curr.data.length, 0)})
-
+  const start = Date.now()
   const params = { 'swarm-chunk-test': '1' }
+  console.log(`Uploading to Bee ${randomBee.url}`)
   const postageStamp = await getPostageStamp(randomBee)
   const { reference: hash } = await retry(() => randomBee.uploadCollection(postageStamp, files, {
     axiosOptions: { params },
     indexDocument: 'index.html',
   }))
 
-  console.log(`Bee ${randomBee.url} uploaded, hash ${hash}`)
+  const end = Date.now()
+  const elapsedSecs = Math.ceil((end - start) / 1000)
+  console.log(`Bee ${randomBee.url} uploaded, hash ${hash}, elapsed ${elapsedSecs}`)
 
   report.hash = hash
 
@@ -221,12 +228,15 @@ async function uploadAndCheck() {
 
   const randomFunc = makeRandomFuncFromSeed(seedBytes)
   const randomBees = randomShuffle(bees, randomFunc)
-  const numUploadNodes = randomBees.length
+  const numUploadNodes = 1
   const uploadBees = randomBees.slice(0, numUploadNodes)
   const downloadBees = randomBees.slice(numUploadNodes)
 
   const files = makeRandomWebsiteFiles(seedBytes)
   report.size = totalSize(files)
+
+  console.debug({ sizes: files.map(file => file.data.length) })
+  console.debug({ totalSize: files.reduce((prev, curr) => prev + curr.data.length, 0)})
 
   setTimeout(() => { console.error(`Timeout after ${TIMEOUT} secs`); exitWithReport(1) }, TIMEOUT * 1000)
   const hashes = await Promise.all(uploadBees.map(bee => uploadFiles(bee, files)))

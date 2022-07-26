@@ -22,6 +22,7 @@ async function retry(asyncFn, minSleep = 60_000) {
     try {
       return await asyncFn()
     } catch (e) {
+      console.error({e})
       const sleepTime = typeof minSleep === 'number' ? minSleep : minSleep()
       await sleep(Math.floor(sleepTime + Math.random() * sleepTime))
     }
